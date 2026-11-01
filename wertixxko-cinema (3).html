@@ -1,0 +1,2042 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WERTIXXKO CINEMA — Премиальный Кинотеатр</title>
+    <meta name="theme-color" content="#120d0b">
+    <!-- Google Fonts & FontAwesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;900&family=Cormorant+Garamond:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css'">
+    
+    <!-- SUPABASE JS CLIENT -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        :root {
+            --bg-color: #120d0b;
+            --card-bg: #1b1411;
+            --accent-blue: #c98a8a;   /* пыльная роза: начало градиента */
+            --accent-cyan: #ecd9b0;   /* шампанское: конец градиента */
+            --accent-pink: #e0b5a8;   /* основной акцент */
+            --accent-rgb: 224, 181, 168;
+            --accent2-rgb: 201, 138, 138;
+            --accent3-rgb: 236, 217, 176;
+            --glow-rgb: 156, 175, 136;
+            --text-main: #f1e8dc;
+            --text-muted: #a89a8c;
+            --cinema-border: rgba(var(--accent-rgb), 0.3);
+            --gold: #ffd700;
+            --poster-ratio: 2 / 3;    /* соотношение сторон постеров */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0; padding: 0;
+            font-family: 'Montserrat', sans-serif;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at 50% 0%, rgba(var(--accent-rgb), 0.15) 0%, transparent 70%);
+        }
+
+        /* --- RESPONSIVE HEADER --- */
+        header {
+            position: sticky; top: 0; z-index: 1000;
+            background: rgba(18, 13, 11, 0.9); backdrop-filter: blur(25px);
+            border-bottom: 1px solid rgba(var(--accent-rgb), 0.15);
+            padding: 12px 20px;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .header-left { display: flex; align-items: center; gap: 14px; }
+
+        .mobile-menu-btn {
+            display: flex; align-items: center; justify-content: center;
+            width: 38px; height: 38px; border-radius: 10px;
+            border: 1px solid rgba(var(--accent-rgb), 0.2);
+            background: rgba(var(--accent-rgb), 0.05);
+            color: var(--text-main); font-size: 1.1rem; cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .mobile-menu-btn:hover { border-color: var(--accent-pink); color: var(--accent-pink); transform: scale(1.05); }
+
+        .logo-container { display: flex; align-items: center; gap: 10px; cursor: pointer; transition: transform 0.3s ease; }
+        .logo-container:hover { transform: scale(1.02); }
+        .logo-symbol {
+            width: 36px; height: 36px; border-radius: 10px;
+            background: linear-gradient(135deg, #e08a00, #ffd27a);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 1.1rem; color: #000;
+            box-shadow: 0 0 18px rgba(var(--accent-rgb), 0.5);
+        }
+        .logo-text { font-size: 1.15rem; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+        .logo-text span { color: var(--accent-pink); font-weight: 400; margin-left: 2px; }
+
+        nav.desktop-nav { display: flex; align-items: center; gap: 10px; }
+
+        .nav-link {
+            color: var(--text-muted); text-decoration: none; font-weight: 600;
+            font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 6px;
+            padding: 6px 12px; border-radius: 8px; white-space: nowrap;
+            transition: all 0.25s ease;
+        }
+        .nav-link:hover, .nav-link.active { color: #fff; background: rgba(var(--accent-rgb), 0.15); }
+        .nav-link.external-link { color: var(--accent-pink); border: 1px solid rgba(var(--accent-rgb), 0.3); background: rgba(var(--accent-rgb), 0.08); }
+
+        .fav-badge { background: rgba(var(--accent2-rgb), 0.25); color: var(--accent-pink); padding: 2px 6px; border-radius: 12px; font-size: 0.75rem; }
+
+        /* MOBILE DRAWER */
+        .mobile-drawer-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(12px);
+            z-index: 9999; display: none; opacity: 0; transition: opacity 0.3s ease;
+        }
+        .mobile-drawer-overlay.active { display: block; opacity: 1; }
+
+        .mobile-drawer {
+            position: fixed; top: 0; left: -280px; width: 280px; height: 100%;
+            background: #1b1411; border-right: 1px solid var(--cinema-border);
+            z-index: 10000; padding: 24px 20px; display: flex; flex-direction: column;
+            gap: 16px; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.9);
+        }
+        .mobile-drawer.active { transform: translateX(280px); }
+
+        .drawer-header {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 16px; margin-bottom: 8px;
+        }
+
+        .drawer-nav-link {
+            color: var(--text-main); text-decoration: none; font-weight: 600;
+            font-size: 1rem; padding: 12px 14px; border-radius: 10px;
+            display: flex; align-items: center; gap: 12px;
+            background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.25s ease;
+        }
+        .drawer-nav-link:hover { background: rgba(var(--accent-rgb), 0.15); border-color: var(--accent-pink); }
+
+        .header-actions { display: flex; align-items: center; gap: 8px; }
+
+        .search-box { position: relative; display: flex; align-items: center; }
+        .search-input {
+            width: 38px; height: 38px; border-radius: 10px;
+            border: 1px solid rgba(var(--accent-rgb), 0.25); background: rgba(255, 255, 255, 0.05);
+            color: #fff; padding: 0 35px 0 12px; outline: none; font-size: 0.85rem;
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1); opacity: 0; cursor: pointer;
+        }
+        .search-box:hover .search-input, .search-input:focus {
+            width: 150px; border-radius: 12px; background: rgba(27, 20, 17, 0.95);
+            border-color: var(--accent-pink); opacity: 1; cursor: text;
+            box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.3);
+        }
+        .search-btn { position: absolute; right: 0; width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); pointer-events: none; }
+
+        .device-box { position: relative; display: flex; align-items: center; }
+        .device-trigger-btn {
+            width: 38px; height: 38px; border-radius: 10px;
+            border: 1px solid rgba(var(--accent-rgb), 0.25); background: rgba(255, 255, 255, 0.05);
+            color: var(--accent-pink); display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 0.9rem; transition: all 0.2s;
+        }
+        .device-dropdown {
+            position: absolute; top: 100%; right: 0; background: #241a16;
+            border: 1px solid var(--cinema-border); border-radius: 14px; padding: 8px;
+            display: none; flex-direction: column; gap: 6px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
+            z-index: 2000; width: 150px; margin-top: 6px;
+            animation: dropdownZoom 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .device-box::after {
+            content: '';
+            position: absolute;
+            top: 100%; left: -10px; right: -10px; height: 12px;
+        }
+        .device-box:hover .device-dropdown,
+        .device-box:focus-within .device-dropdown,
+        .device-dropdown.active-open { display: flex; }
+
+        .device-option-btn {
+            padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.03); color: #fff; font-size: 0.8rem; font-weight: 600;
+            cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;
+        }
+        .device-option-btn:hover, .device-option-btn.active { border-color: var(--accent-pink); background: rgba(var(--accent-rgb), 0.15); color: var(--accent-pink); }
+
+        .admin-trigger-btn {
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(var(--accent-rgb), 0.25);
+            color: var(--text-main); padding: 6px 12px; border-radius: 10px; cursor: pointer;
+            font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 4px; height: 38px;
+            transition: all 0.25s ease;
+        }
+        .admin-trigger-btn:hover { border-color: var(--accent-pink); background: rgba(var(--accent-rgb), 0.15); transform: translateY(-2px); }
+
+        /* GLOBE HOVER LANGUAGE DROPDOWN */
+        .globe-lang-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .globe-trigger-btn {
+            width: 38px; height: 38px; border-radius: 10px;
+            border: 1px solid rgba(var(--accent-rgb), 0.25); background: rgba(255, 255, 255, 0.05);
+            color: var(--accent-pink); display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 1.1rem;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .globe-trigger-btn i {
+            transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .globe-lang-box:hover .globe-trigger-btn,
+        .globe-lang-box:focus-within .globe-trigger-btn {
+            transform: scale(1.15) rotate(15deg);
+            border-color: var(--accent-pink);
+            background: rgba(var(--accent-rgb), 0.2);
+            box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.4);
+        }
+        .globe-lang-box:hover .globe-trigger-btn i,
+        .globe-lang-box:focus-within .globe-trigger-btn i {
+            transform: rotate(180deg);
+            color: #fff;
+        }
+
+        .globe-dropdown {
+            position: absolute; top: 100%; right: 0; background: #241a16;
+            border: 1px solid var(--cinema-border); border-radius: 14px; padding: 8px;
+            display: none; flex-direction: column; gap: 6px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
+            z-index: 2000; width: 150px; margin-top: 6px;
+            transform-origin: top right;
+            animation: dropdownZoom 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .globe-lang-box::after {
+            content: '';
+            position: absolute;
+            top: 100%; left: -10px; right: -10px; height: 12px;
+        }
+        .globe-lang-box:hover .globe-dropdown,
+        .globe-lang-box:focus-within .globe-dropdown,
+        .globe-dropdown.active-open { display: flex; }
+
+        .lang-option-btn {
+            padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.03); color: #fff; font-size: 0.8rem; font-weight: 600;
+            cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;
+        }
+        .lang-option-btn:hover, .lang-option-btn.active {
+            border-color: var(--accent-pink); background: rgba(var(--accent-rgb), 0.2); color: var(--accent-pink);
+        }
+
+        @keyframes dropdownZoom {
+            from { opacity: 0; transform: scale(0.85) translateY(-8px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        /* --- MAIN LAYOUT & GRID --- */
+        main { width: 100%; max-width: 1400px; margin: 0 auto; padding: 20px 16px; }
+        .section-title { font-size: 1.3rem; font-weight: 800; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }
+        .section-title::before { content: ''; width: 4px; height: 20px; background: linear-gradient(180deg, var(--accent-blue), var(--accent-cyan)); border-radius: 4px; box-shadow: 0 0 10px var(--accent-pink); }
+
+        .movies-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 14px;
+            animation: pageFadeIn 0.4s ease-out;
+        }
+
+        body.mode-pc .movies-grid {
+            grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) !important;
+            gap: 28px !important;
+        }
+        body.mode-phone .movies-grid {
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+            gap: 14px !important;
+        }
+
+        .cinema-card { 
+            background: var(--card-bg); border-radius: 14px; overflow: hidden; cursor: pointer; 
+            border: 1px solid rgba(255, 255, 255, 0.06); 
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .cinema-card:hover { 
+            transform: translateY(-8px) scale(1.02); 
+            border-color: var(--accent-pink); 
+            box-shadow: 0 12px 30px rgba(var(--accent-rgb), 0.25);
+        }
+        .cinema-frame { padding: 8px; background: linear-gradient(180deg, #241a16 0%, #0d0907 100%); border-radius: 14px; border: 1px solid var(--cinema-border); }
+        .poster-wrapper { position: relative; width: 100%; aspect-ratio: var(--poster-ratio); border-radius: 8px; overflow: hidden; }
+        .poster-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
+        .cinema-card:hover .poster-img { transform: scale(1.08); }
+
+        .tech-badges { position: absolute; top: 6px; right: 6px; display: flex; flex-direction: column; gap: 3px; z-index: 2; }
+        .badge-tech { background: rgba(0, 0, 0, 0.85); border: 1px solid rgba(var(--accent3-rgb), 0.4); color: #fff; font-size: 0.55rem; font-weight: 800; padding: 2px 5px; border-radius: 4px; }
+        .badge-cat { position: absolute; bottom: 6px; left: 6px; background: rgba(var(--accent2-rgb), 0.85); border: 1px solid rgba(var(--accent3-rgb), 0.5); color: #fff; font-size: 0.55rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+
+        .card-info { padding: 8px 4px 2px 4px; }
+        .card-title { font-size: 0.9rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+        .card-meta { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted); }
+
+        /* --- CLEAN CINEMATIC PLAYER & MOBILE FIXES --- */
+        .detail-view { display: none; animation: pageFadeIn 0.35s ease-out; }
+        .back-btn { 
+            display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); 
+            background: rgba(255, 255, 255, 0.05); padding: 8px 16px; border-radius: 20px; 
+            cursor: pointer; margin-bottom: 16px; border: 1px solid rgba(var(--accent-rgb), 0.2); 
+            font-weight: 600; font-size: 0.85rem; transition: all 0.25s ease;
+        }
+        .back-btn:hover { background: rgba(var(--accent-rgb), 0.15); color: var(--accent-pink); border-color: var(--accent-pink); transform: translateX(-4px); }
+
+        .player-bar-clean {
+            background: rgba(27, 20, 17, 0.95);
+            border: 1px solid rgba(var(--accent-rgb), 0.3);
+            border-bottom: none;
+            border-radius: 14px 14px 0 0;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 0.85rem;
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .player-bar-clean > div:first-child {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .player-bar-clean span#cleanPlayerTitle {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .player-bar-clean > div:last-child {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        .player-screen-box {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/9;
+            max-height: 65vh;
+            background: #000;
+            border-radius: 0 0 14px 14px;
+            overflow: hidden;
+            border: 1px solid rgba(var(--accent-rgb), 0.3);
+            box-shadow: 0 10px 35px rgba(var(--accent-rgb), 0.25);
+            margin-bottom: 12px;
+        }
+
+        @media (max-width: 768px) {
+            .player-screen-box { width: 100%; height: auto; aspect-ratio: 16/9; max-height: none; }
+        }
+
+        .native-video-player {
+            width: 100%; height: 100%;
+            background: #000; object-fit: contain; display: block;
+        }
+
+        .iframe-player-container {
+            width: 100%; height: 100%; display: none;
+            position: relative;
+            overflow: hidden;
+        }
+        .iframe-player-container iframe {
+            width: 100%; height: 100%; border: none;
+            display: block;
+        }
+
+        .player-action-bar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 20px;
+        }
+
+        .fullscreen-action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--accent-pink);
+            background: rgba(var(--accent-rgb), 0.12);
+            border: 1px solid rgba(var(--accent-rgb), 0.35);
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.15);
+        }
+        .fullscreen-action-btn:hover {
+            color: #fff;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            border-color: var(--accent-pink);
+            transform: scale(1.02);
+            box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.4);
+        }
+
+        /* SERIES / EPISODES SELECTOR UI */
+        .episodes-panel {
+            background: rgba(27, 20, 17, 0.7);
+            border: 1px solid rgba(var(--accent-rgb), 0.2);
+            border-radius: 16px;
+            padding: 18px;
+            margin-bottom: 24px;
+        }
+        .episodes-header {
+            font-size: 1.05rem;
+            font-weight: 800;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: var(--accent-pink);
+        }
+
+        .episodes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 10px;
+            max-height: 280px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .episode-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 10px 12px;
+            color: var(--text-main);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            transition: all 0.25s ease;
+            text-align: left;
+        }
+        .episode-btn:hover {
+            border-color: var(--accent-pink);
+            background: rgba(var(--accent-rgb), 0.12);
+        }
+        .episode-btn.active {
+            border-color: var(--accent-pink);
+            background: linear-gradient(135deg, rgba(var(--accent2-rgb), 0.35), rgba(var(--accent3-rgb), 0.35));
+            color: #fff;
+            box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.3);
+        }
+        .ep-number { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; }
+        .episode-btn.active .ep-number { color: var(--accent-pink); }
+
+        #movieTitle {
+            font-size: 1.4rem;
+            font-weight: 900;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+
+        /* MODALS */
+        .lang-modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(12, 8, 6, 0.95); backdrop-filter: blur(15px);
+            z-index: 99999; display: flex; align-items: center; justify-content: center; padding: 16px;
+            animation: fadeIn 0.3s ease;
+        }
+        .lang-modal {
+            background: linear-gradient(145deg, #1d1512, #0d0907); border: 1px solid var(--cinema-border);
+            border-radius: 20px; padding: 24px; width: 100%; max-width: 440px; text-align: center;
+            box-shadow: 0 10px 40px rgba(var(--accent-rgb), 0.2);
+        }
+        .lang-modal h2 { font-size: 1.35rem; margin-bottom: 6px; color: var(--accent-pink); }
+        .lang-modal p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px; }
+
+        .modal-section-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin: 12px 0 8px 0; text-align: left; font-weight: 700; }
+        .lang-btn-group, .device-btn-group { display: flex; gap: 10px; justify-content: center; margin-bottom: 12px; }
+        
+        .modal-select-btn {
+            flex: 1; padding: 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.04); color: #fff; font-weight: 700; font-size: 0.85rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.25s ease;
+        }
+        .modal-select-btn:hover, .modal-select-btn.active {
+            border-color: var(--accent-pink); background: rgba(var(--accent-rgb), 0.2); color: var(--accent-pink);
+        }
+
+        .modal-confirm-btn {
+            width: 100%; padding: 14px; border-radius: 12px; border: none;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            color: #fff; font-weight: 800; font-size: 0.95rem; cursor: pointer; margin-top: 10px;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 15px rgba(var(--accent2-rgb), 0.3);
+        }
+        .modal-confirm-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(var(--accent2-rgb), 0.5); }
+
+        /* ADMIN MODAL */
+        .admin-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.88); backdrop-filter: blur(15px); z-index: 10000; align-items: center; justify-content: center; padding: 16px; animation: fadeIn 0.25s ease; }
+        .admin-content { background: #241a16; border: 1px solid var(--cinema-border); border-radius: 20px; padding: 24px; width: 100%; max-width: 620px; max-height: 90vh; overflow-y: auto; position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
+        .close-modal { position: absolute; top: 16px; right: 16px; font-size: 1.2rem; color: var(--text-muted); cursor: pointer; transition: color 0.2s; }
+        .close-modal:hover { color: var(--accent-pink); }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; margin-bottom: 4px; font-size: 0.8rem; color: var(--text-muted); }
+        .form-control { width: 100%; padding: 10px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #fff; outline: none; font-size: 0.9rem; }
+        .form-control:focus { border-color: var(--accent-pink); }
+
+        .episodes-builder-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px dashed rgba(var(--accent-rgb), 0.4);
+            border-radius: 12px;
+            padding: 14px;
+            margin-top: 10px;
+            margin-bottom: 14px;
+        }
+        .ep-row-input {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        .ep-row-input input { flex: 1; }
+        .btn-remove-ep {
+            background: rgba(255, 68, 68, 0.2); color: #ff4444; border: 1px solid #ff4444;
+            width: 34px; height: 34px; border-radius: 8px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .btn-add-ep {
+            background: rgba(var(--accent-rgb), 0.15); color: var(--accent-pink); border: 1px solid var(--accent-pink);
+            padding: 8px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; width: 100%; margin-top: 6px;
+        }
+
+        .submit-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan)); border: none; border-radius: 8px; color: #fff; font-weight: 700; cursor: pointer; margin-top: 10px; }
+
+        .admin-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(255, 255, 255, 0.03); border-radius: 8px; margin-bottom: 8px; font-size: 0.85rem; }
+        .btn-edit { background: rgba(255, 215, 0, 0.2); color: var(--gold); border: 1px solid var(--gold); padding: 4px 10px; border-radius: 4px; cursor: pointer; margin-right: 4px; }
+        .btn-del { background: rgba(255, 68, 68, 0.2); color: #ff4444; border: 1px solid #ff4444; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+
+        footer { margin-top: 60px; border-top: 1px solid rgba(var(--accent-rgb), 0.15); padding: 30px 20px; text-align: center; background: rgba(18, 13, 11, 0.9); }
+        .footer-bottom { font-size: 0.85rem; color: var(--text-muted); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pageFadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        .mobile-only { display: flex !important; }
+        .desktop-only { display: none !important; }
+
+        @media (min-width: 768px) {
+            body.mode-pc .mobile-only { display: none !important; }
+            body.mode-pc .desktop-only { display: flex !important; }
+        }
+
+        /* ===== v2: анимации, постеры 2:3, мобильный плеер ===== */
+        :focus-visible { outline: 2px solid var(--accent-pink); outline-offset: 2px; }
+        body::before { content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
+            background: radial-gradient(40vmax 40vmax at 15% 20%, rgba(var(--glow-rgb),.10), transparent 60%),
+                        radial-gradient(45vmax 45vmax at 85% 70%, rgba(var(--accent-rgb),.09), transparent 60%);
+            animation: ambientDrift 24s ease-in-out infinite alternate; }
+        @keyframes ambientDrift { to { transform: translate3d(-3%,2%,0) scale(1.08); } }
+        @keyframes shine { 0%,60% { transform: translateX(-110%); } 100% { transform: translateX(110%); } }
+        @keyframes riseIn { from { opacity:0; transform: translateY(22px); } }
+        @keyframes cardIn { from { opacity:0; transform: translateY(28px) scale(.94); } }
+        @keyframes modalPop { from { opacity:0; transform: translateY(24px) scale(.92); } }
+        @keyframes slideInLeft { from { opacity:0; transform: translateX(-26px); } }
+        @keyframes headerIn { from { opacity:0; transform: translateY(-100%); } }
+        @keyframes barGlow { from { box-shadow: 0 0 6px var(--accent-pink); } to { box-shadow: 0 0 18px var(--accent-pink); } }
+        @keyframes skeleton { to { background-position: -200% 0; } }
+        @keyframes playerGlow { from { box-shadow: 0 10px 35px rgba(var(--accent-rgb),.16); } to { box-shadow: 0 14px 52px rgba(var(--accent-rgb),.38); } }
+
+        header { animation: headerIn .7s cubic-bezier(.16,1,.3,1) backwards; }
+        .logo-symbol { position: relative; overflow: hidden; }
+        .logo-symbol::after, .modal-confirm-btn::after, .submit-btn::after { content:''; position:absolute; inset:0; pointer-events:none;
+            background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.5) 50%, transparent 65%); animation: shine 4s ease-in-out infinite; }
+        .modal-confirm-btn, .submit-btn { position: relative; overflow: hidden; color: #2a1b17; }
+        .section-title::before { animation: barGlow 2.4s ease-in-out infinite alternate; }
+
+        .nav-link { position: relative; }
+        .nav-link::after { content:''; position:absolute; left:12px; right:12px; bottom:2px; height:2px; border-radius:2px; background: var(--accent-pink);
+            transform: scaleX(0); transform-origin: left; transition: transform .35s cubic-bezier(.16,1,.3,1); }
+        .nav-link:hover::after, .nav-link.active::after { transform: scaleX(1); }
+        .modal-select-btn:active, .back-btn:active, .admin-trigger-btn:active, .drawer-nav-link:active, .episode-btn:active,
+        .fullscreen-action-btn:active, .lang-switch-btn:active, .mobile-menu-btn:active { transform: scale(.95); }
+
+        .cinema-card { position: relative; animation: cardIn .65s cubic-bezier(.16,1,.3,1) backwards; animation-delay: calc(var(--i, 0) * 55ms); }
+        .poster-wrapper { background: linear-gradient(100deg, #241a16 30%, #2f231d 50%, #241a16 70%); background-size: 200% 100%; animation: skeleton 1.6s linear infinite; }
+        .poster-wrapper::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:3;
+            background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.2) 50%, transparent 65%); transform: translateX(-120%); transition: transform .85s ease; }
+        .cinema-card:hover .poster-wrapper::after { transform: translateX(120%); }
+        .poster-play { position:absolute; inset:0; z-index:1; display:flex; align-items:center; justify-content:center; opacity:0;
+            background: linear-gradient(180deg, transparent 40%, rgba(18,13,11,.78)); transition: opacity .35s ease; }
+        .poster-play i { width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; padding-left:3px; font-size:1rem; color:#2a1b17;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan)); box-shadow: 0 0 28px rgba(var(--accent-rgb),.55);
+            transform: scale(.55); transition: transform .5s cubic-bezier(.34,1.56,.64,1); }
+        .cinema-card:hover .poster-play { opacity: 1; }
+        .cinema-card:hover .poster-play i { transform: scale(1); }
+        .badge-cat { color: #2a1b17; background: rgba(var(--accent2-rgb), .92); }
+        .card-title { transition: color .25s ease; }
+        .cinema-card:hover .card-title { color: var(--accent-pink); }
+
+        .detail-view > * { animation: riseIn .6s cubic-bezier(.16,1,.3,1) backwards; }
+        .detail-view > *:nth-child(2) { animation-delay: .06s; } .detail-view > *:nth-child(3) { animation-delay: .12s; }
+        .detail-view > *:nth-child(4) { animation-delay: .18s; } .detail-view > *:nth-child(5) { animation-delay: .24s; }
+        .detail-view > *:nth-child(n+6) { animation-delay: .3s; }
+        .player-screen-box { animation: playerGlow 4s ease-in-out infinite alternate; }
+        .episode-btn { animation: riseIn .45s cubic-bezier(.16,1,.3,1) backwards; animation-delay: calc(var(--i, 0) * 40ms); }
+        .fullscreen-action-btn:hover { color: #2a1b17; }
+        .lang-switch-btn { display:inline-flex; align-items:center; gap:8px; font-size:.85rem; font-weight:700; cursor:pointer; color: var(--accent-pink);
+            background: rgba(var(--accent-rgb),.12); border: 1px solid rgba(var(--accent-rgb),.35); padding: 10px 18px; border-radius: 10px; transition: all .25s ease; }
+        .lang-switch-btn:hover { background: rgba(var(--accent-rgb),.22); border-color: var(--accent-pink); transform: translateY(-2px); }
+
+        .lang-modal, .admin-content { animation: modalPop .55s cubic-bezier(.34,1.3,.64,1) backwards; }
+        .mobile-drawer.active .drawer-nav-link { animation: slideInLeft .5s cubic-bezier(.16,1,.3,1) backwards; }
+        .mobile-drawer.active .drawer-nav-link:nth-child(2) { animation-delay: .08s; } .mobile-drawer.active .drawer-nav-link:nth-child(3) { animation-delay: .14s; }
+        .mobile-drawer.active .drawer-nav-link:nth-child(4) { animation-delay: .2s; } .mobile-drawer.active .drawer-nav-link:nth-child(5) { animation-delay: .26s; }
+
+        /* Google Drive: блок кнопки «открыть в новом окне» и запасной полный экран */
+        .drive-popout-blocker { display:none; position:absolute; top:0; right:0; width:64px; height:64px; z-index:5; }
+        .iframe-player-container.is-drive .drive-popout-blocker { display:block; }
+        .fs-exit-btn { display:none; }
+        .player-screen-box.pseudo-fullscreen { position:fixed !important; inset:0; width:100vw !important; height:100vh !important; height:100dvh !important;
+            max-height:none !important; aspect-ratio:auto !important; z-index:99990; margin:0; border:none; border-radius:0; animation:none; background:#000; }
+        .player-screen-box.pseudo-fullscreen .fs-exit-btn { display:flex; position:absolute; top:max(10px, env(safe-area-inset-top)); left:10px; z-index:10;
+            width:42px; height:42px; align-items:center; justify-content:center; border-radius:50%; cursor:pointer; font-size:1.05rem;
+            background: rgba(18,13,11,.72); border:1px solid var(--cinema-border); color: var(--accent-pink); backdrop-filter: blur(8px); }
+        @media (max-width: 900px) and (orientation: landscape) { .player-screen-box { max-height: 85vh; } }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+        }
+
+        /* ===== v3: иконки, винтажный шрифт, подсветка за курсором (ПК) ===== */
+        .fa, .fas, .fa-solid { font-family: "Font Awesome 6 Free" !important; font-weight: 900 !important; font-style: normal !important; }
+        .far, .fa-regular { font-family: "Font Awesome 6 Free" !important; font-weight: 400 !important; font-style: normal !important; }
+        .fab, .fa-brands { font-family: "Font Awesome 6 Brands" !important; font-weight: 400 !important; font-style: normal !important; }
+        .logo-text, .section-title, #movieTitle, .lang-modal h2, .episodes-header { font-family: 'Cormorant Garamond', Georgia, serif; }
+        .logo-text { font-size: 1.4rem; letter-spacing: .5px; } .section-title { font-size: 1.7rem; } #movieTitle { font-size: 1.9rem; } .lang-modal h2 { font-size: 1.8rem; }
+        body::after { content:''; position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:0; transition: opacity .5s ease;
+            background: radial-gradient(460px circle at var(--mx, 50%) var(--my, 30%), rgba(var(--accent-rgb), .15), rgba(var(--accent2-rgb), .05) 45%, transparent 70%); }
+        body.mode-pc.has-cursor::after { opacity: 1; }
+        .cinema-card::before { content:''; position:absolute; inset:0; z-index:4; pointer-events:none; opacity:0; transition: opacity .3s ease;
+            background: radial-gradient(260px circle at var(--cx, 50%) var(--cy, 50%), rgba(var(--accent-rgb), .18), transparent 60%); }
+        body.mode-pc .cinema-card:hover::before { opacity: 1; }
+
+        /* ===== v4: стабильный плеер на телефоне ===== */
+        .player-action-bar { gap: 10px; flex-wrap: wrap; }
+        .player-action-bar a.fullscreen-action-btn { text-decoration: none; }
+        .player-screen-box { animation: none; box-shadow: 0 10px 35px rgba(var(--accent-rgb), .22); }
+        @media (hover: none), (max-width: 768px) {
+            body::before { animation: none; }
+            .player-screen-box, .iframe-player-container { overflow: visible; }
+            header { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(18, 13, 11, .97); }
+            .detail-view > * { animation: none; }
+        }
+
+        /* ===== v5: меню, шапка и поиск на телефоне ===== */
+        .mobile-drawer { left: 0; max-width: 85vw; overflow: hidden; transform: translateX(-110%); visibility: hidden;
+            transition: transform .5s cubic-bezier(.16,1,.3,1), visibility 0s linear .5s; }
+        .mobile-drawer.active { transform: translateX(0); visibility: visible; transition: transform .5s cubic-bezier(.16,1,.3,1), visibility 0s; }
+        .drawer-header { gap: 10px; }
+        .drawer-header .logo-container { min-width: 0; gap: 8px; }
+        .drawer-header .logo-text { font-size: 1rem; white-space: nowrap; }
+        .drawer-close { width: 38px; height: 38px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer;
+            border: 1px solid var(--cinema-border); background: rgba(var(--accent-rgb), .08); color: var(--accent-pink); font-size: 1rem;
+            transition: transform .4s cubic-bezier(.34,1.56,.64,1), background .25s ease; }
+        .drawer-close:active { transform: scale(.88) rotate(90deg); background: rgba(var(--accent-rgb), .2); }
+        .mobile-drawer.active .drawer-close { animation: closeSpin .65s .12s cubic-bezier(.34,1.56,.64,1) backwards; }
+        @keyframes closeSpin { from { opacity: 0; transform: rotate(-140deg) scale(.4); } }
+
+        @media (max-width: 768px), (hover: none) {
+            .search-input { opacity: 1; background: rgba(var(--accent-rgb), .08); border-color: rgba(var(--accent-rgb), .45); }
+            .search-btn { color: var(--accent-pink); }
+        }
+        @media (max-width: 768px) {
+            header { padding: 10px 12px; gap: 8px; }
+            .header-left { gap: 10px; min-width: 0; }
+            header .logo-text { font-size: 1.15rem; }
+            .header-actions { gap: 6px; flex-shrink: 0; }
+            #adminBtnText { display: none; }
+            .admin-trigger-btn { width: 38px; padding: 0; justify-content: center; }
+            .search-box .search-input:focus { width: min(56vw, 240px); }
+            header:has(.search-input:focus) .device-box, header:has(.search-input:focus) .globe-lang-box { display: none; }
+        }
+        @media (max-width: 480px) { header .logo-text { display: none; } }
+
+        /* ===== v6: окно «Скачать» ===== */
+        .dl-modal { display: none; position: fixed; inset: 0; z-index: 100000; align-items: center; justify-content: center; padding: 16px;
+            background: rgba(12, 8, 6, .88); backdrop-filter: blur(12px); }
+        .dl-modal.active { display: flex; animation: fadeIn .25s ease; }
+        .dl-modal-card { position: relative; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; padding: 26px 22px 22px;
+            background: linear-gradient(145deg, #241a16, #150f0c); border: 1px solid var(--cinema-border); border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,.6); animation: modalPop .5s cubic-bezier(.34,1.3,.64,1) backwards; }
+        .dl-modal-card h3 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.7rem; color: var(--accent-pink); margin: 0 44px 8px 0; }
+        .dl-modal-card p { color: var(--text-muted); font-size: .9rem; line-height: 1.55; margin-bottom: 14px; }
+        .dl-modal-card ol { padding-left: 20px; margin-bottom: 14px; font-size: .9rem; line-height: 1.55; }
+        .dl-modal-card li { margin-bottom: 9px; padding-left: 4px; }
+        .dl-modal-card li::marker { color: var(--accent-pink); font-weight: 800; }
+        .dl-tip { font-size: .82rem; line-height: 1.5; color: var(--text-main); padding: 11px 13px; border-radius: 12px; margin-bottom: 14px;
+            background: rgba(var(--accent-rgb), .1); border: 1px dashed rgba(var(--accent-rgb), .4); }
+        .dl-close { position: absolute; top: 14px; right: 14px; }
+        .dl-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px; margin-top: 8px; border-radius: 12px;
+            font-weight: 800; font-size: .92rem; cursor: pointer; text-decoration: none; color: #2a1b17; border: none;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan)); transition: transform .25s ease, box-shadow .25s ease; }
+        .dl-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(var(--accent2-rgb), .4); }
+        .dl-btn.alt { color: var(--accent-pink); background: rgba(var(--accent-rgb), .08); border: 1px solid rgba(var(--accent-rgb), .4); }
+    </style>
+</head>
+<body>
+
+    <!-- MOBILE SIDEBAR DRAWER MENU -->
+    <div class="mobile-drawer-overlay" id="drawerOverlay" onclick="closeMobileDrawer()"></div>
+    <div class="mobile-drawer" id="mobileDrawer">
+        <div class="drawer-header">
+            <div class="logo-container">
+                <div class="logo-symbol">WX</div>
+                <div class="logo-text">WERTIXXKO<span>MENU</span></div>
+            </div>
+            <div class="drawer-close" onclick="playAestheticSound('tap'); closeMobileDrawer();" role="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></div>
+        </div>
+
+        <a class="drawer-nav-link" onclick="playAestheticSound('tap'); showCatalog('movie'); closeMobileDrawer();">
+            <i class="fa-solid fa-film" style="color: var(--accent-pink);"></i> <span id="mNavMovies">Фильмы</span>
+        </a>
+        <a class="drawer-nav-link" onclick="playAestheticSound('tap'); showCatalog('series'); closeMobileDrawer();">
+            <i class="fa-solid fa-tv" style="color: var(--accent-pink);"></i> <span id="mNavSeries">Сериалы</span>
+        </a>
+        <a class="drawer-nav-link" onclick="playAestheticSound('tap'); showFavorites(); closeMobileDrawer();">
+            <i class="fa-regular fa-bookmark" style="color: var(--accent-pink);"></i> <span id="mFavText">Избранное</span>
+        </a>
+        <a href="https://linktr.ee/Wertixxko" target="_blank" rel="noopener noreferrer" class="drawer-nav-link" onclick="playAestheticSound('tap');">
+            <i class="fa-solid fa-paper-plane" style="color: var(--accent-pink);"></i> <span id="mNavContacts">Контакты</span>
+        </a>
+    </div>
+
+    <!-- LANGUAGE & DEVICE MODAL -->
+    <div class="lang-modal-overlay" id="langModal">
+        <div class="lang-modal">
+            <h2>WERTIXXKO CINEMA</h2>
+            <p id="mdlSub">Настройка просмотра / Viewing Preferences</p>
+            
+            <div class="modal-section-title" id="mdlSec1">1. Язык / Language</div>
+            <div class="lang-btn-group">
+                <button class="modal-select-btn active" id="modalLangRu" onclick="playAestheticSound('tap'); setModalLang('ru');">🇷🇺 Русский</button>
+                <button class="modal-select-btn" id="modalLangEn" onclick="playAestheticSound('tap'); setModalLang('en');">🇺🇸 EN</button>
+            </div>
+
+            <div class="modal-section-title" id="mdlSec2">2. Устройство / Device Mode</div>
+            <div class="device-btn-group">
+                <button class="modal-select-btn active" id="modalDevicePhone" onclick="playAestheticSound('tap'); setModalDevice('phone');"><i class="fa-solid fa-mobile-screen-button"></i> Phone</button>
+                <button class="modal-select-btn" id="modalDevicePc" onclick="playAestheticSound('tap'); setModalDevice('pc');"><i class="fa-solid fa-desktop"></i> Computer</button>
+            </div>
+
+            <button class="modal-confirm-btn" id="mdlGo" onclick="playAestheticSound('confirm'); confirmInitialSetup();">Продолжить / Continue</button>
+        </div>
+    </div>
+
+    <!-- HEADER -->
+    <header>
+        <div class="header-left">
+            <button class="mobile-menu-btn mobile-only" onclick="playAestheticSound('drawer'); openMobileDrawer();">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+
+            <div class="logo-container" onclick="playAestheticSound('tap'); showCatalog('all');">
+                <div class="logo-symbol">WX</div>
+                <div class="logo-text">WERTIXXKO<span>CINEMA</span></div>
+            </div>
+        </div>
+
+        <nav class="desktop-nav desktop-only">
+            <a class="nav-link active" onclick="playAestheticSound('tap'); showCatalog('all');" id="navHome">Главная</a>
+            <a class="nav-link" onclick="playAestheticSound('tap'); showCatalog('movie');" id="navMovies">Фильмы</a>
+            <a class="nav-link" onclick="playAestheticSound('tap'); showCatalog('series');" id="navSeries">Сериалы</a>
+            <a class="nav-link" onclick="playAestheticSound('tap'); showFavorites();" id="navFavs">
+                <i class="fa-regular fa-bookmark"></i> <span id="favText">Избранное</span> <span class="fav-badge" id="favCount">( 0 )</span>
+            </a>
+            <a href="https://linktr.ee/Wertixxko" target="_blank" rel="noopener noreferrer" class="nav-link external-link" onclick="playAestheticSound('tap');">
+                <i class="fa-solid fa-paper-plane"></i> <span id="navContacts">Контакты</span>
+            </a>
+        </nav>
+
+        <div class="header-actions">
+            <div class="search-box">
+                <input type="text" class="search-input" id="searchInput" placeholder="Поиск..." oninput="handleSearch()">
+                <div class="search-btn"><i class="fa-solid fa-magnifying-glass"></i></div>
+            </div>
+
+            <div class="device-box" id="deviceBox">
+                <button class="device-trigger-btn" onmouseenter="playAestheticSound('hover');" onclick="playAestheticSound('tap'); toggleDeviceDropdown(event);" title="Выбор устройства / Device Select">
+                    <i class="fa-solid fa-mobile-screen-button" id="currentDeviceIcon"></i>
+                </button>
+                <div class="device-dropdown" id="deviceDropdown">
+                    <div class="device-option-btn" id="headerDevicePhone" onmouseenter="playAestheticSound('hover');" onclick="playAestheticSound('tap'); selectDeviceMode('phone'); closeAllDropdowns();">
+                        <i class="fa-solid fa-mobile-screen-button"></i> Телефон
+                    </div>
+                    <div class="device-option-btn" id="headerDevicePc" onmouseenter="playAestheticSound('hover');" onclick="playAestheticSound('tap'); selectDeviceMode('pc'); closeAllDropdowns();">
+                        <i class="fa-solid fa-desktop"></i> Компьютер
+                    </div>
+                </div>
+            </div>
+
+            <!-- ANIMATED GLOBE LANGUAGE SELECTOR -->
+            <div class="globe-lang-box" id="globeLangBox">
+                <button class="globe-trigger-btn" onmouseenter="playAestheticSound('hover');" onclick="playAestheticSound('tap'); toggleGlobeDropdown(event);" title="Язык / Language">
+                    <i class="fa-solid fa-globe"></i>
+                </button>
+                <div class="globe-dropdown" id="globeDropdown">
+                    <div class="lang-option-btn" id="optLangRu" onmouseenter="playAestheticSound('hover');" onclick="setLanguage('ru'); closeAllDropdowns();">
+                        <span>🇷🇺 Русский</span> <i class="fa-solid fa-check" style="font-size:0.7rem; opacity:0;" id="chkLangRu"></i>
+                    </div>
+                    <div class="lang-option-btn" id="optLangEn" onmouseenter="playAestheticSound('hover');" onclick="setLanguage('en');">
+                        <span>🇺🇸 English</span> <i class="fa-solid fa-check" style="font-size:0.7rem; opacity:0;" id="chkLangEn"></i>
+                    </div>
+                </div>
+            </div>
+
+            <button class="admin-trigger-btn" onmouseenter="playAestheticSound('hover');" onclick="playAestheticSound('tap'); openAdminModal();">
+                <i class="fa-solid fa-lock"></i> <span id="adminBtnText">Админ</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main>
+        <div id="catalogView">
+            <h2 class="section-title" id="sectionTitle">Рекомендации WERTIXXKO CINEMA</h2>
+            <div class="movies-grid" id="moviesGrid"></div>
+        </div>
+
+        <div class="detail-view" id="detailView">
+            <div class="back-btn" onclick="playAestheticSound('tap'); showCatalog('all');">
+                <i class="fa-solid fa-arrow-left"></i> <span id="backBtnText">Назад</span>
+            </div>
+
+            <!-- CLEAN PLAYER HEADER BAR -->
+            <div class="player-bar-clean">
+                <div>
+                    <i class="fa-solid fa-film" style="color: var(--accent-pink);"></i>
+                    <span id="cleanPlayerTitle">WERTIXXKO CINEMA PLAYER</span>
+                </div>
+                <div>ULTRA HD PLAYER</div>
+            </div>
+
+            <!-- PLAYER CONTAINER FOR PLAYERJS / IFRAME -->
+            <div class="player-screen-box" id="playerjsBox">
+                <div id="playerjsContainer" style="width:100%; height:100%; display:none;"></div>
+                <video id="nativeVideo" class="native-video-player" controls playsinline preload="metadata" style="display:none;"></video>
+                <button type="button" class="fs-exit-btn" onclick="exitPseudoFullscreen()" aria-label="Exit fullscreen"><i class="fa-solid fa-compress"></i></button>
+                <div id="iframeContainer" class="iframe-player-container" style="display:none;">
+                    <iframe id="fallbackIframe" allowfullscreen allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
+                    <div class="drive-popout-blocker"></div>
+                </div>
+            </div>
+
+            <!-- FULLSCREEN TOGGLE BUTTON -->
+            <div class="player-action-bar" style="justify-content: center; align-items: center; margin-top: 14px;">
+                <button id="fullscreenToggleBtn" onclick="playAestheticSound('tap'); toggleCustomFullscreen();" class="fullscreen-action-btn">
+                    <i class="fa-solid fa-expand"></i> <span id="fsBtnText">Полноэкранный режим</span>
+                </button>
+                <button type="button" id="openSourceBtn" class="fullscreen-action-btn" style="display:none;" onclick="playAestheticSound('tap'); openDownloadModal();">
+                    <i class="fa-solid fa-download"></i> <span id="dlBtnText">Скачать</span>
+                </button>
+            </div>
+
+            <!-- SERIES EPISODES SELECTOR -->
+            <div class="episodes-panel" id="episodesPanel" style="display: none;">
+                <div class="episodes-header">
+                    <span><i class="fa-solid fa-list-ul"></i> <span id="episodesHeaderText">Выбор серии</span></span>
+                    <span id="activeEpBadge" style="font-size: 0.8rem; color: var(--text-muted);">1 Серия</span>
+                </div>
+                <div class="episodes-grid" id="episodesGrid"></div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; margin-bottom: 15px; flex-wrap: wrap;">
+                <div>
+                    <h1 id="movieTitle">Elvis 56' Documentary</h1>
+                    <div id="movieMeta" style="color: var(--text-muted); margin-top: 4px; font-size: 0.85rem;">1987 • Документальный</div>
+                </div>
+                <button class="lang-switch-btn" id="favToggleBtn" onclick="playAestheticSound('tap'); toggleFavoriteCurrent();">
+                    <i class="fa-regular fa-bookmark"></i> <span id="favBtnLabel">В избранное</span>
+                </button>
+            </div>
+
+            <div style="line-height: 1.6; color: #b0b0c5; font-size: 0.95rem;" id="movieDescription"></div>
+        </div>
+    </main>
+
+    <!-- ADMIN MODAL -->
+    <div class="admin-modal" id="adminModal">
+        <div class="admin-content">
+            <i class="fa-solid fa-xmark close-modal" onclick="closeAdminModal()"></i>
+            
+            <div id="adminAuthStep">
+                <h3 style="margin-bottom: 12px;">Вход Администратора</h3>
+                <div class="form-group">
+                    <label>Пароль доступа:</label>
+                    <input type="password" class="form-control" id="adminPassInput">
+                </div>
+                <button class="submit-btn" onclick="playAestheticSound('confirm'); verifyAdminPassword();">Войти</button>
+            </div>
+
+            <div id="adminFormStep" style="display: none;">
+                <h3 style="margin-bottom: 12px;">Управление Контентом</h3>
+                <form id="addMovieForm" onsubmit="handleSaveMovie(event)">
+                    <input type="hidden" id="editMovieId">
+                    <div class="form-group"><label>Название (RU):</label><input type="text" class="form-control" id="inputTitleRu" required></div>
+                    <div class="form-group"><label>Название (EN):</label><input type="text" class="form-control" id="inputTitleEn" required></div>
+                    <div class="form-group"><label>Год выпуска:</label><input type="number" class="form-control" id="inputYear" min="1900" max="2099" required></div>
+                    <div class="form-group">
+                        <label>Тип контента:</label>
+                        <select class="form-control" id="inputCategory" onchange="toggleCategoryFormMode()">
+                            <option value="movie">Фильм (Одиночное видео)</option>
+                            <option value="series">Сериал (Много серий)</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Ссылка на постер (URL, вертикальный, формат 2:3):</label><input type="text" class="form-control" id="inputPoster" required></div>
+                    
+                    <!-- MOVIE SINGLE VIDEO LINK FIELD -->
+                    <div class="form-group" id="movieVideoGroup">
+                        <label>Ссылка или HTML-код плеера (GDrive / YouTube / RuTube / VK / OK.ru / MP4):</label>
+                        <input type="text" class="form-control" id="inputVideo">
+                    </div>
+
+                    <!-- SERIES DYNAMIC EPISODES BUILDER FIELD -->
+                    <div class="form-group" id="seriesEpisodesGroup" style="display: none;">
+                        <label>Список серий сериала:</label>
+                        <div class="episodes-builder-box">
+                            <div id="episodesListContainer"></div>
+                            <button type="button" class="btn-add-ep" onclick="addEpisodeInputRow()">
+                                <i class="fa-solid fa-plus"></i> Добавить еще серию
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-group"><label>Описание (RU):</label><textarea class="form-control" id="inputDescRu" rows="2" required></textarea></div>
+                    <div class="form-group"><label>Описание (EN):</label><textarea class="form-control" id="inputDescEn" rows="2" required></textarea></div>
+                    <div class="form-group" style="display: flex; gap: 15px;">
+                        <label><input type="checkbox" id="chkDolbyVision"> HDR Vision</label>
+                        <label><input type="checkbox" id="chkDolbyAtmos"> Spatial Surround</label>
+                    </div>
+                    <button type="submit" class="submit-btn">Сохранить фильм/сериал</button>
+                </form>
+
+                <h4 style="margin: 20px 0 10px 0;">Опубликованный контент:</h4>
+                <div id="adminMovieList"></div>
+
+                <button style="background: rgba(255,255,255,0.05); color: #888; border: 1px solid rgba(255,255,255,0.1); padding: 8px; border-radius: 6px; width: 100%; margin-top: 15px; cursor: pointer; font-size: 0.8rem;" onclick="resetToFactory()">Сбросить локальные данные</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DOWNLOAD MODAL -->
+    <div class="dl-modal" id="dlModal" onclick="if (event.target === this) closeDownloadModal();">
+        <div class="dl-modal-card">
+            <div class="drawer-close dl-close" onclick="playAestheticSound('tap'); closeDownloadModal();" role="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></div>
+            <h3 id="dlTitle"></h3>
+            <p id="dlLead"></p>
+            <ol id="dlSteps"></ol>
+            <div class="dl-tip" id="dlTip"></div>
+            <div id="dlActions"></div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="footer-bottom">
+            <div>© 2026 <strong>WERTIXXKO CINEMA</strong></div>
+        </div>
+    </footer>
+
+    <!-- PLAYERJS SCRIPT -->
+    <script src="https://playerjs.com/script/playerjs.js" type="text/javascript"></script>
+
+    <script>
+        /* --- SUPABASE INITIALIZATION --- */
+        const SUPABASE_URL = "https://aehfjkycxlmtmppqcnyt.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_lQRUPluZXJiCUS5h0cUzJA_lTTQr4Z9";
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        /* --- SOUND SYNTHESIZER --- */
+        let audioCtx = null;
+        let playerjsInstance = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playAestheticSound(type) {
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                const now = audioCtx.currentTime;
+
+                if (type === 'tap') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(340, now);
+                    osc.frequency.exponentialRampToValueAtTime(110, now + 0.05);
+                    gain.gain.setValueAtTime(0.06, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(now); osc.stop(now + 0.05);
+
+                } else if (type === 'hover') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(520, now);
+                    osc.frequency.exponentialRampToValueAtTime(680, now + 0.03);
+                    gain.gain.setValueAtTime(0.015, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(now); osc.stop(now + 0.03);
+
+                } else if (type === 'drawer') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(140, now);
+                    osc.frequency.exponentialRampToValueAtTime(290, now + 0.09);
+                    gain.gain.setValueAtTime(0.07, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(now); osc.stop(now + 0.09);
+
+                } else if (type === 'confirm') {
+                    const osc1 = audioCtx.createOscillator();
+                    const osc2 = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc1.type = 'sine';
+                    osc2.type = 'triangle';
+                    osc1.frequency.setValueAtTime(261.63, now);
+                    osc1.frequency.exponentialRampToValueAtTime(523.25, now + 0.12);
+                    osc2.frequency.setValueAtTime(329.63, now);
+                    osc2.frequency.exponentialRampToValueAtTime(659.25, now + 0.12);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+                    osc1.connect(gain); osc2.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc1.start(now); osc2.start(now);
+                    osc1.stop(now + 0.12); osc2.stop(now + 0.12);
+
+                } else if (type === 'lang') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, now);
+                    osc.frequency.setValueAtTime(880, now + 0.04);
+                    gain.gain.setValueAtTime(0.04, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(now); osc.stop(now + 0.1);
+                }
+            } catch(e) {}
+        }
+
+        const i18n = {
+            ru: {
+                navHome: "Главная", navMovies: "Фильмы", navSeries: "Сериалы", favText: "Избранное",
+                navContacts: "Контакты", searchPlaceholder: "Поиск...", adminBtnText: "Админ",
+                sectionTitle: "Рекомендации WERTIXXKO CINEMA", backBtnText: "Назад",
+                favBtnAdd: "В избранное", favBtnRemove: "В избранном",
+                watchText: "Смотреть", seriesBadgeText: "Сериал", movieBadgeText: "Фильм",
+                episodesHeaderText: "Выбор серии", extBtnText: "Открыть в источнике",
+                fsBtnText: "Полноэкранный режим", dlBtnText: "Скачать"
+            },
+            en: {
+                navHome: "Home", navMovies: "Movies", navSeries: "Series", favText: "Favorites",
+                navContacts: "Contacts", searchPlaceholder: "Search...", adminBtnText: "Admin",
+                sectionTitle: "WERTIXXKO CINEMA Recommendations", backBtnText: "Back",
+                favBtnAdd: "Add to Favorites", favBtnRemove: "In Favorites",
+                watchText: "Watch", seriesBadgeText: "Series", movieBadgeText: "Movie",
+                episodesHeaderText: "Episode Selector", extBtnText: "Open Original Source",
+                fsBtnText: "Fullscreen Mode", dlBtnText: "Download"
+            }
+        };
+
+        let currentLang = localStorage.getItem('wertixxko_lang') || 'ru';
+        let currentDevice = localStorage.getItem('wertixxko_device') || (window.innerWidth < 768 ? 'phone' : 'pc');
+        let selectedModalLang = currentLang;
+        let selectedModalDevice = currentDevice;
+
+        let favorites = JSON.parse(localStorage.getItem('wertixxko_favs')) || [];
+        let currentMovieId = null;
+        let currentDownload = null;
+        let activeEpisodeIndex = 0;
+
+        const defaultMovies = [
+            {
+                id: 'elvis_epic_2026',
+                title: { ru: "EPiC.Elvis.Presley.in.Concert.2026.UHD", en: "EPiC.Elvis.Presley.in.Concert.2026.UHD" },
+                year: 2026, category: 'movie',
+                poster: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
+                videoUrl: 'https://drive.google.com/file/d/1MDfsw7FrzEU9Wr9UWXpFD6EIZ2iGJrxz/view?usp=drive_link',
+                description: {
+                    ru: "Уникальный концертный релиз Элвиса Пресли в высоком разрешении 4K UHD.",
+                    en: "Unique concert release of Elvis Presley in 4K UHD resolution."
+                },
+                dolbyVision: true, dolbyAtmos: true
+            },
+            {
+                id: 'elvis56',
+                title: { ru: "Elvis 56' Documentary", en: "Elvis 56' Documentary" },
+                year: 1987, category: 'movie',
+                poster: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&q=80',
+                videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+                description: {
+                    ru: "Уникальный документальный фильм, рассказывающий о решающем 1956 годе в карьере Элвиса Пресли.",
+                    en: "A unique documentary covering the pivotal year of 1956 in Elvis Presley's career."
+                },
+                dolbyVision: true, dolbyAtmos: true
+            },
+            {
+                id: 'cyberpunk_series',
+                title: { ru: "Киберпанк: Хроники (Сериал)", en: "Cyberpunk Chronicles" },
+                year: 2026, category: 'series',
+                poster: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80',
+                description: {
+                    ru: "Эксклюзивный неоновый сериал про жизнь хакеров в футуристическом городе будущего.",
+                    en: "Exclusive cyberpunk series following hackers in a futuristic metropolis."
+                },
+                episodes: [
+                    { title: "Серия 1: Пролог", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4" },
+                    { title: "Серия 2: Сигналы", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" },
+                    { title: "Серия 3: Финал", url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4" }
+                ],
+                dolbyVision: true, dolbyAtmos: true
+            }
+        ];
+
+        let movies = [];
+
+        async function loadMoviesFromSupabase() {
+            try {
+                const { data, error } = await supabaseClient.from('movies').select('*');
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    movies = data.map(row => row.data);
+                } else {
+                    for (const m of defaultMovies) {
+                        await supabaseClient.from('movies').upsert({ id: m.id, data: m });
+                    }
+                    movies = defaultMovies;
+                }
+            } catch (err) {
+                console.error("Supabase load error, falling back to defaults:", err);
+                movies = defaultMovies;
+            }
+            renderCatalog(movies);
+            updateFavBadge();
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            selectDeviceMode(currentDevice);
+            
+            if (!localStorage.getItem('wertixxko_setup_done')) {
+                const langModal = document.getElementById('langModal');
+                if (langModal) langModal.style.display = 'flex';
+            } else {
+                const langModal = document.getElementById('langModal');
+                if (langModal) langModal.style.display = 'none';
+                applyLanguage(currentLang);
+            }
+
+            loadMoviesFromSupabase();
+
+            document.addEventListener('click', (e) => {
+                const dBox = document.getElementById('deviceBox');
+                const gBox = document.getElementById('globeLangBox');
+                if (dBox && !dBox.contains(e.target)) {
+                    document.getElementById('deviceDropdown')?.classList.remove('active-open');
+                }
+                if (gBox && !gBox.contains(e.target)) {
+                    document.getElementById('globeDropdown')?.classList.remove('active-open');
+                }
+            });
+        });
+
+        function toggleDeviceDropdown(e) {
+            e.stopPropagation();
+            const dropdown = document.getElementById('deviceDropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('active-open');
+                document.getElementById('globeDropdown')?.classList.remove('active-open');
+            }
+        }
+
+        function toggleGlobeDropdown(e) {
+            e.stopPropagation();
+            const dropdown = document.getElementById('globeDropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('active-open');
+                document.getElementById('deviceDropdown')?.classList.remove('active-open');
+            }
+        }
+
+        function closeAllDropdowns() {
+            document.getElementById('deviceDropdown')?.classList.remove('active-open');
+            document.getElementById('globeDropdown')?.classList.remove('active-open');
+        }
+
+        function destroyPlayerjs() {
+            if (playerjsInstance) {
+                try { playerjsInstance.api('destroy'); } catch (e) {}
+                playerjsInstance = null;
+            }
+            const pjsBox = document.getElementById('playerjsContainer');
+            if (pjsBox) {
+                pjsBox.innerHTML = '';
+                pjsBox.style.display = 'none';
+            }
+        }
+
+        function loadVideoPlayer(rawUrl) {
+            const videoEl = document.getElementById('nativeVideo');
+            const iframeContainer = document.getElementById('iframeContainer');
+            const fallbackIframe = document.getElementById('fallbackIframe');
+            const pjsBox = document.getElementById('playerjsContainer');
+            
+            if (!videoEl || !iframeContainer || !fallbackIframe) return;
+
+            // Полная очистка предыдущего состояния
+            destroyPlayerjs();
+            videoEl.pause();
+            videoEl.removeAttribute('src');
+            videoEl.onerror = null;
+            videoEl.onloadeddata = null;
+            videoEl.load();
+            fallbackIframe.src = 'about:blank';
+
+            iframeContainer.classList.remove('is-drive');
+            const openBtn = document.getElementById('openSourceBtn');
+            if (openBtn) openBtn.style.display = 'none';
+            currentDownload = null;
+            let str = (rawUrl || '').trim();
+
+            if (str.includes('<iframe')) {
+                const srcMatch = str.match(/src=["']([^"']+)["']/);
+                if (srcMatch && srcMatch[1]) str = srcMatch[1];
+            }
+
+            if (!str) return;
+
+            // ========== GOOGLE DRIVE ==========
+            // Google ограничивает iframe-preview максимумом 1080p.
+            // Прямая ссылка uc?export=download часто отдаёт оригинальное качество (включая 4K).
+            // Для очень больших файлов Google может показать страницу «проверка на вирусы» —
+            // тогда автоматически падаем на надёжный iframe.
+            if (str.includes('drive.google.com')) {
+                let fileId = '';
+                const match1 = str.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                const match2 = str.match(/id=([a-zA-Z0-9_-]+)/);
+                if (match1 && match1[1]) fileId = match1[1];
+                else if (match2 && match2[1]) fileId = match2[1];
+
+                if (fileId) {
+                    const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
+                    const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+                    const viewUrl = `https://drive.google.com/file/d/${fileId}/view`;
+
+                    currentDownload = { type: 'drive', viewUrl, directUrl };
+                    if (openBtn) {
+                        openBtn.style.display = 'inline-flex';
+                        const t = document.getElementById('dlBtnText');
+                        if (t) t.innerText = (i18n[currentLang] || i18n.ru).dlBtnText;
+                    }
+
+                    // Пытаемся воспроизвести прямую ссылку в нативном плеере (оригинальное качество)
+                    iframeContainer.style.display = 'none';
+                    if (pjsBox) pjsBox.style.display = 'none';
+                    videoEl.style.display = 'block';
+
+                    let fallbackTriggered = false;
+                    const fallbackToIframe = () => {
+                        if (fallbackTriggered) return;
+                        fallbackTriggered = true;
+                        videoEl.pause();
+                        videoEl.removeAttribute('src');
+                        videoEl.load();
+                        videoEl.style.display = 'none';
+                        iframeContainer.classList.add('is-drive');
+                        iframeContainer.style.display = 'block';
+                        fallbackIframe.src = embedUrl;
+                    };
+
+                    videoEl.onerror = () => fallbackToIframe();
+                    // Если через 8 секунд видео так и не начало грузиться — переключаемся на iframe
+                    const loadTimeout = setTimeout(() => {
+                        if (videoEl.readyState < 2) fallbackToIframe();
+                    }, 8000);
+
+                    videoEl.onloadeddata = () => clearTimeout(loadTimeout);
+                    videoEl.src = directUrl;
+                    videoEl.load();
+                    videoEl.play().catch(() => {}); // автозапуск может быть заблокирован браузером
+                    return;
+                }
+            }
+
+            // ========== OK.RU ==========
+            if (str.includes('ok.ru')) {
+                let okEmbedUrl = str;
+                const okMatch = str.match(/ok\.ru\/(?:video|videoembed)\/(\d+)/);
+                if (okMatch && okMatch[1]) {
+                    okEmbedUrl = `https://ok.ru/videoembed/${okMatch[1]}`;
+                }
+
+                if (pjsBox) pjsBox.style.display = 'none';
+                videoEl.style.display = 'none';
+                iframeContainer.style.display = 'block';
+                fallbackIframe.src = okEmbedUrl;
+                return;
+            }
+
+            // ========== YouTube / RuTube / VK / embed ==========
+            if (str.includes('youtube.com') || str.includes('youtu.be') || str.includes('rutube.ru') || str.includes('vk.com') || str.includes('/embed/')) {
+                let embedUrl = str;
+                if (str.includes('youtube.com') && str.includes('watch?v=')) {
+                    embedUrl = str.replace('watch?v=', 'embed/');
+                } else if (str.includes('youtu.be/')) {
+                    const id = str.split('youtu.be/')[1].split(/[?&]/)[0];
+                    embedUrl = `https://www.youtube.com/embed/${id}`;
+                } else if (str.includes('rutube.ru/video/')) {
+                    const id = str.split('rutube.ru/video/')[1].replace('/', '').split(/[?&]/)[0];
+                    embedUrl = `https://rutube.ru/play/embed/${id}`;
+                }
+
+                if (pjsBox) pjsBox.style.display = 'none';
+                videoEl.style.display = 'none';
+                iframeContainer.style.display = 'block';
+                fallbackIframe.src = embedUrl;
+                return;
+            }
+
+            // ========== Обычный MP4 / прямой файл ==========
+            if (pjsBox) pjsBox.style.display = 'none';
+            iframeContainer.style.display = 'none';
+            videoEl.style.display = 'block';
+            videoEl.src = str;
+            currentDownload = { type: 'file', url: str };
+            if (openBtn) {
+                openBtn.style.display = 'inline-flex';
+                const t = document.getElementById('dlBtnText');
+                if (t) t.innerText = (i18n[currentLang] || i18n.ru).dlBtnText;
+            }
+            videoEl.load();
+            videoEl.play().catch(e => console.log(e));
+        }
+
+        function isRealFullscreen() { return document.fullscreenElement || document.webkitFullscreenElement; }
+
+        function fitFullscreenBox() {
+            const box = document.getElementById('playerjsBox');
+            if (!box) return;
+            if (box.classList.contains('pseudo-fullscreen')) {
+                const vv = window.visualViewport;
+                box.style.setProperty('height', (vv ? vv.height : window.innerHeight) + 'px', 'important');
+                box.style.setProperty('width', (vv ? vv.width : window.innerWidth) + 'px', 'important');
+            } else {
+                box.style.removeProperty('height');
+                box.style.removeProperty('width');
+            }
+        }
+
+        function enterPseudoFullscreen(box) {
+            box.classList.add('pseudo-fullscreen');
+            document.body.style.overflow = 'hidden';
+            fitFullscreenBox();
+        }
+
+        function exitPseudoFullscreen() {
+            const box = document.getElementById('playerjsBox');
+            if (!box || !box.classList.contains('pseudo-fullscreen')) return;
+            box.classList.remove('pseudo-fullscreen');
+            document.body.style.overflow = '';
+            fitFullscreenBox();
+            if (isRealFullscreen()) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {} }
+        }
+
+        function lockLandscape() { try { screen.orientation?.lock?.('landscape').catch(() => {}); } catch (e) {} }
+
+        function toggleCustomFullscreen() {
+            const box = document.getElementById('playerjsBox');
+            const videoEl = document.getElementById('nativeVideo');
+            if (!box) return;
+            const root = document.documentElement;
+            const rootReq = root.requestFullscreen || root.webkitRequestFullscreen;
+
+            if (box.classList.contains('pseudo-fullscreen')) { exitPseudoFullscreen(); return; }
+            if (isRealFullscreen()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+
+            if (window.matchMedia('(hover: none)').matches) {
+                // Телефон: полный экран считаем сами по реальной видимой области, чтобы кнопки плеера не обрезались
+                if (videoEl && videoEl.style.display === 'block' && videoEl.webkitEnterFullscreen && !rootReq) {
+                    try { videoEl.webkitEnterFullscreen(); return; } catch (e) {}
+                }
+                enterPseudoFullscreen(box);
+                if (rootReq) {
+                    try { const pr = rootReq.call(root); if (pr && pr.then) pr.then(lockLandscape).catch(() => {}); else lockLandscape(); } catch (e) {}
+                }
+                return;
+            }
+
+            const req = box.requestFullscreen || box.webkitRequestFullscreen;
+            if (!req) { enterPseudoFullscreen(box); return; }
+            try {
+                const p = req.call(box);
+                if (p && p.then) p.then(lockLandscape).catch(() => enterPseudoFullscreen(box)); else lockLandscape();
+            } catch (e) { enterPseudoFullscreen(box); }
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!isRealFullscreen()) {
+                try { screen.orientation?.unlock?.(); } catch (e) {}
+                exitPseudoFullscreen();
+            }
+            fitFullscreenBox();
+        });
+        window.addEventListener('resize', fitFullscreenBox);
+        window.addEventListener('orientationchange', () => setTimeout(fitFullscreenBox, 250));
+        if (window.visualViewport) window.visualViewport.addEventListener('resize', fitFullscreenBox);
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') { exitPseudoFullscreen(); closeDownloadModal(); } });
+
+        function playEpisode(index) {
+            const movie = movies.find(m => m.id === currentMovieId);
+            if (!movie || !movie.episodes || !movie.episodes[index]) return;
+
+            activeEpisodeIndex = index;
+            const ep = movie.episodes[index];
+
+            document.querySelectorAll('.episode-btn').forEach((btn, idx) => {
+                btn.classList.toggle('active', idx === index);
+            });
+
+            const epBadge = document.getElementById('activeEpBadge');
+            if (epBadge) epBadge.innerText = ep.title || `${index + 1} ${currentLang === 'en' ? 'Episode' : 'Серия'}`;
+
+            loadVideoPlayer(ep.url);
+        }
+
+        function renderEpisodesList(episodes) {
+            const epPanel = document.getElementById('episodesPanel');
+            const epGrid = document.getElementById('episodesGrid');
+            if (!epPanel || !epGrid) return;
+
+            if (!episodes || episodes.length === 0) {
+                epPanel.style.display = 'none';
+                return;
+            }
+
+            epPanel.style.display = 'block';
+            epGrid.innerHTML = '';
+
+            episodes.forEach((ep, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `episode-btn ${idx === activeEpisodeIndex ? 'active' : ''}`;
+                btn.onclick = () => {
+                    playAestheticSound('tap');
+                    playEpisode(idx);
+                };
+                btn.innerHTML = `
+                    <span class="ep-number">${currentLang === 'en' ? 'EPISODE' : 'ЭПИЗОД'} ${idx + 1}</span>
+                    <span>${ep.title || 'Untitled'}</span>
+                `;
+                btn.style.setProperty('--i', Math.min(idx, 12));
+                epGrid.appendChild(btn);
+            });
+        }
+
+        function openMobileDrawer() {
+            const overlay = document.getElementById('drawerOverlay');
+            const drawer = document.getElementById('mobileDrawer');
+            if (overlay) overlay.classList.add('active');
+            if (drawer) drawer.classList.add('active');
+        }
+
+        function closeMobileDrawer() {
+            const overlay = document.getElementById('drawerOverlay');
+            const drawer = document.getElementById('mobileDrawer');
+            if (overlay) overlay.classList.remove('active');
+            if (drawer) drawer.classList.remove('active');
+        }
+
+        function setModalLang(lang) {
+            selectedModalLang = lang;
+            const MT = lang === 'en' ? ['Viewing preferences', '1. Language', '2. Device', 'Continue'] : ['Настройка просмотра', '1. Язык', '2. Устройство', 'Продолжить'];
+            ['mdlSub', 'mdlSec1', 'mdlSec2', 'mdlGo'].forEach((id, i) => { const el = document.getElementById(id); if (el) el.innerText = MT[i]; });
+            const ruBtn = document.getElementById('modalLangRu');
+            const enBtn = document.getElementById('modalLangEn');
+            if (ruBtn) ruBtn.classList.toggle('active', lang === 'ru');
+            if (enBtn) enBtn.classList.toggle('active', lang === 'en');
+        }
+
+        function setModalDevice(device) {
+            selectedModalDevice = device;
+            const phoneBtn = document.getElementById('modalDevicePhone');
+            const pcBtn = document.getElementById('modalDevicePc');
+            if (phoneBtn) phoneBtn.classList.toggle('active', device === 'phone');
+            if (pcBtn) pcBtn.classList.toggle('active', device === 'pc');
+        }
+
+        function confirmInitialSetup() {
+            currentLang = selectedModalLang;
+            currentDevice = selectedModalDevice;
+
+            localStorage.setItem('wertixxko_lang', currentLang);
+            localStorage.setItem('wertixxko_device', currentDevice);
+            localStorage.setItem('wertixxko_setup_done', 'true');
+
+            const langModal = document.getElementById('langModal');
+            if (langModal) langModal.style.display = 'none';
+
+            selectDeviceMode(currentDevice);
+            applyLanguage(currentLang);
+        }
+
+        function selectDeviceMode(mode) {
+            currentDevice = mode;
+            localStorage.setItem('wertixxko_device', mode);
+
+            document.body.classList.remove('mode-phone', 'mode-pc');
+            document.body.classList.add('mode-' + mode);
+
+            const icon = document.getElementById('currentDeviceIcon');
+            if (icon) {
+                icon.className = mode === 'phone' ? 'fa-solid fa-mobile-screen-button' : 'fa-solid fa-desktop';
+            }
+
+            const headerPhone = document.getElementById('headerDevicePhone');
+            const headerPc = document.getElementById('headerDevicePc');
+            if (headerPhone) headerPhone.classList.toggle('active', mode === 'phone');
+            if (headerPc) headerPc.classList.toggle('active', mode === 'pc');
+
+            renderCatalog(movies);
+        }
+
+        function setLanguage(lang) {
+            playAestheticSound('lang');
+            currentLang = lang;
+            localStorage.setItem('wertixxko_lang', currentLang);
+            applyLanguage(currentLang);
+            if (currentMovieId) openMovie(currentMovieId);
+        }
+
+        function toggleLanguage() {
+            setLanguage(currentLang === 'ru' ? 'en' : 'ru');
+        }
+
+        function applyLanguage(lang) {
+            const optRu = document.getElementById('optLangRu');
+            const optEn = document.getElementById('optLangEn');
+            const chkRu = document.getElementById('chkLangRu');
+            const chkEn = document.getElementById('chkLangEn');
+
+            if (optRu && optEn) {
+                optRu.classList.toggle('active', lang === 'ru');
+                optEn.classList.toggle('active', lang === 'en');
+            }
+            if (chkRu && chkEn) {
+                chkRu.style.opacity = lang === 'ru' ? '1' : '0';
+                chkEn.style.opacity = lang === 'en' ? '1' : '0';
+            }
+
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) searchInput.placeholder = i18n[lang].searchPlaceholder;
+            
+            ['navHome', 'navMovies', 'navSeries', 'favText', 'navContacts', 'adminBtnText', 'sectionTitle', 'backBtnText', 'mNavMovies', 'mNavSeries', 'mFavText', 'mNavContacts', 'episodesHeaderText', 'fsBtnText', 'dlBtnText'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && i18n[lang][id]) el.innerText = i18n[lang][id];
+            });
+
+            translateAll();
+            renderCatalog(movies);
+        }
+
+        function renderCatalog(items) {
+            const grid = document.getElementById('moviesGrid');
+            if (!grid) return;
+            grid.innerHTML = '';
+
+            items.forEach((movie, idx) => {
+                const card = document.createElement('div');
+                card.className = 'cinema-card';
+                card.style.setProperty('--i', Math.min(idx, 14));
+                card.onclick = () => { playAestheticSound('tap'); openMovie(movie.id); };
+
+                const title = movie.title[currentLang] || movie.title.ru;
+                const isSeries = movie.category === 'series';
+                const watchBtnText = i18n[currentLang] ? i18n[currentLang].watchText : "Смотреть";
+                const badgeText = isSeries ? (i18n[currentLang]?.seriesBadgeText || 'Сериал') : (i18n[currentLang]?.movieBadgeText || 'Фильм');
+
+                card.innerHTML = `
+                    <div class="cinema-frame">
+                        <div class="poster-wrapper">
+                            <img src="${movie.poster}" class="poster-img" alt="${title}" loading="lazy">
+                            <div class="poster-play"><i class="fa-solid fa-play"></i></div>
+                            <div class="tech-badges">
+                                ${movie.dolbyVision ? '<span class="badge-tech">HDR VISION</span>' : ''}
+                                ${movie.dolbyAtmos ? '<span class="badge-tech">SURROUND</span>' : ''}
+                            </div>
+                            <span class="badge-cat">${badgeText}</span>
+                        </div>
+                        <div class="card-info">
+                            <div class="card-title">${title}</div>
+                            <div class="card-meta">
+                                <span>${movie.year}</span>
+                                <span><i class="fa-solid fa-play" style="color: var(--accent-pink); font-size: 0.65rem;"></i> ${isSeries ? (movie.episodes ? movie.episodes.length + ' ep.' : badgeText) : watchBtnText}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function openMovie(id) {
+            const movie = movies.find(m => m.id === id);
+            if (!movie) return;
+
+            currentMovieId = id;
+            activeEpisodeIndex = 0;
+            
+            const catView = document.getElementById('catalogView');
+            const detView = document.getElementById('detailView');
+            if (catView) catView.style.display = 'none';
+            if (detView) detView.style.display = 'block';
+
+            const mTitle = document.getElementById('movieTitle');
+            const mDesc = document.getElementById('movieDescription');
+            const mMeta = document.getElementById('movieMeta');
+            const cleanTitle = document.getElementById('cleanPlayerTitle');
+
+            const activeTitle = movie.title[currentLang] || movie.title.ru;
+            const categoryLabel = movie.category === 'movie' ? (i18n[currentLang]?.movieBadgeText || 'Фильм') : (i18n[currentLang]?.seriesBadgeText || 'Сериал');
+
+            if (mTitle) mTitle.innerText = activeTitle;
+            if (cleanTitle) cleanTitle.innerText = activeTitle;
+            if (mDesc) mDesc.innerText = movie.description[currentLang] || movie.description.ru;
+            if (mMeta) mMeta.innerText = `${movie.year} • ${categoryLabel}`;
+
+            if (movie.category === 'series' && movie.episodes && movie.episodes.length > 0) {
+                renderEpisodesList(movie.episodes);
+                playEpisode(0);
+            } else {
+                renderEpisodesList(null);
+                loadVideoPlayer(movie.videoUrl);
+            }
+
+            updateFavButtonState();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function showCatalog(cat) {
+            exitPseudoFullscreen();
+            const catView = document.getElementById('catalogView');
+            const detView = document.getElementById('detailView');
+            const videoEl = document.getElementById('nativeVideo');
+            const fallbackIframe = document.getElementById('fallbackIframe');
+
+            if (videoEl) {
+                videoEl.pause();
+                videoEl.removeAttribute('src'); videoEl.load();
+            }
+            if (fallbackIframe) {
+                fallbackIframe.src = 'about:blank';
+            }
+
+            if (detView) detView.style.display = 'none';
+            if (catView) catView.style.display = 'block';
+            currentMovieId = null;
+
+            if (cat === 'all') renderCatalog(movies);
+            else renderCatalog(movies.filter(m => m.category === cat));
+        }
+
+        function handleSearch() {
+            const sInput = document.getElementById('searchInput');
+            if (!sInput) return;
+
+            const detView = document.getElementById('detailView');
+            if (detView && detView.style.display !== 'none') {
+                showCatalog('all');
+            }
+
+            const query = sInput.value.toLowerCase().trim();
+            if (!query) {
+                renderCatalog(movies);
+                return;
+            }
+
+            renderCatalog(movies.filter(m => 
+                (m.title.ru && m.title.ru.toLowerCase().includes(query)) || 
+                (m.title.en && m.title.en.toLowerCase().includes(query))
+            ));
+        }
+
+        function toggleFavoriteCurrent() {
+            if (!currentMovieId) return;
+            const idx = favorites.indexOf(currentMovieId);
+            if (idx > -1) favorites.splice(idx, 1);
+            else favorites.push(currentMovieId);
+            localStorage.setItem('wertixxko_favs', JSON.stringify(favorites));
+            updateFavBadge();
+            updateFavButtonState();
+        }
+
+        function updateFavBadge() {
+            const fCount = document.getElementById('favCount');
+            if (fCount) fCount.innerText = `( ${favorites.length} )`;
+        }
+
+        function updateFavButtonState() {
+            const label = document.getElementById('favBtnLabel');
+            const isFav = favorites.includes(currentMovieId);
+            if (label && i18n[currentLang]) {
+                label.innerText = isFav ? i18n[currentLang].favBtnRemove : i18n[currentLang].favBtnAdd;
+            }
+        }
+
+        function showFavorites() {
+            showCatalog('all');
+            renderCatalog(movies.filter(m => favorites.includes(m.id)));
+        }
+
+        function openAdminModal() { translateUI(document.getElementById('adminModal'));
+            
+            const aModal = document.getElementById('adminModal');
+            if (aModal) aModal.style.display = 'flex'; 
+        }
+
+        function closeAdminModal() { 
+            const aModal = document.getElementById('adminModal');
+            if (aModal) aModal.style.display = 'none'; 
+        }
+
+        function verifyAdminPassword() {
+            const passInput = document.getElementById('adminPassInput');
+            const pass = passInput ? passInput.value : '';
+            if (pass === '4231') {
+                const authStep = document.getElementById('adminAuthStep');
+                const formStep = document.getElementById('adminFormStep');
+                if (authStep) authStep.style.display = 'none';
+                if (formStep) formStep.style.display = 'block';
+                toggleCategoryFormMode();
+                renderAdminMovieList();
+            } else {
+                alert(currentLang === 'en' ? 'Wrong password!' : 'Неверный пароль!');
+            }
+        }
+
+        function toggleCategoryFormMode() {
+            const cat = document.getElementById('inputCategory').value;
+            const mGroup = document.getElementById('movieVideoGroup');
+            const sGroup = document.getElementById('seriesEpisodesGroup');
+            
+            if (cat === 'series') {
+                mGroup.style.display = 'none';
+                sGroup.style.display = 'block';
+                const container = document.getElementById('episodesListContainer');
+                if (container && container.children.length === 0) {
+                    addEpisodeInputRow();
+                }
+            } else {
+                mGroup.style.display = 'block';
+                sGroup.style.display = 'none';
+            }
+        }
+
+        function addEpisodeInputRow(title = '', url = '') {
+            const container = document.getElementById('episodesListContainer');
+            if (!container) return;
+
+            const rowNum = container.children.length + 1;
+            const row = document.createElement('div');
+            row.className = 'ep-row-input';
+            row.innerHTML = `
+                <input type="text" class="form-control ep-title-input" placeholder="${currentLang === 'en' ? 'Episode ' + rowNum + ': Title' : 'Серия ' + rowNum + ': Название'}" value="${title}">
+                <input type="text" class="form-control ep-url-input" placeholder="${currentLang === 'en' ? 'Video link (Drive/MP4/YT)' : 'Ссылка на видео (Drive/MP4/YT)'}" value="${url}">
+                <button type="button" class="btn-remove-ep" onclick="removeEpisodeInputRow(this)"><i class="fa-solid fa-trash-can"></i></button>
+            `;
+            container.appendChild(row);
+        }
+
+        function removeEpisodeInputRow(btn) {
+            const row = btn.closest('.ep-row-input');
+            if (row) row.remove();
+        }
+
+        function renderAdminMovieList() {
+            const list = document.getElementById('adminMovieList');
+            if (!list) return;
+            list.innerHTML = '';
+            movies.forEach(m => {
+                const item = document.createElement('div');
+                item.className = 'admin-item';
+                const isSeries = m.category === 'series';
+                item.innerHTML = `
+                    <span><strong>${m.title[currentLang] || m.title.ru}</strong> (${m.year}) — <small style="color:var(--accent-pink);">${currentLang === 'en' ? (isSeries ? 'Series' : 'Movie') : (isSeries ? 'Сериал' : 'Фильм')}</small></span>
+                    <div>
+                        <button class="btn-edit" onclick="playAestheticSound('tap'); editMovie('${m.id}')">${currentLang === 'en' ? 'Edit' : 'Изменить'}</button>
+                        <button class="btn-del" onclick="playAestheticSound('tap'); deleteMovie('${m.id}')">${currentLang === 'en' ? 'Delete' : 'Удалить'}</button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        async function handleSaveMovie(e) {
+            e.preventDefault();
+            try {
+                const editId = document.getElementById('editMovieId').value;
+                const cat = document.getElementById('inputCategory').value;
+
+                let epArray = [];
+                if (cat === 'series') {
+                    const titleInputs = document.querySelectorAll('.ep-title-input');
+                    const urlInputs = document.querySelectorAll('.ep-url-input');
+                    titleInputs.forEach((inp, idx) => {
+                        const tVal = inp.value.trim();
+                        const uVal = urlInputs[idx] ? urlInputs[idx].value.trim() : '';
+                        if (uVal) {
+                            epArray.push({
+                                title: tVal || `Серия ${idx + 1}`,
+                                url: uVal
+                            });
+                        }
+                    });
+                }
+
+                const titleRuVal = document.getElementById('inputTitleRu').value.trim();
+                const titleEnVal = document.getElementById('inputTitleEn').value.trim();
+                const yearVal = parseInt(document.getElementById('inputYear').value, 10) || new Date().getFullYear();
+                const posterVal = document.getElementById('inputPoster').value.trim();
+                const videoVal = document.getElementById('inputVideo').value.trim();
+                const descRuVal = document.getElementById('inputDescRu').value.trim();
+                const descEnVal = document.getElementById('inputDescEn').value.trim();
+
+                const movieData = {
+                    id: editId || 'm_' + Date.now(),
+                    title: { ru: titleRuVal, en: titleEnVal },
+                    year: yearVal,
+                    category: cat,
+                    poster: posterVal,
+                    videoUrl: cat === 'movie' ? videoVal : '',
+                    episodes: cat === 'series' ? epArray : [],
+                    description: { ru: descRuVal, en: descEnVal },
+                    dolbyVision: document.getElementById('chkDolbyVision').checked,
+                    dolbyAtmos: document.getElementById('chkDolbyAtmos').checked
+                };
+
+                const { error } = await supabaseClient.from('movies').upsert({
+                    id: movieData.id,
+                    data: movieData
+                });
+
+                if (error) throw error;
+
+                if (editId) {
+                    const idx = movies.findIndex(m => m.id === editId);
+                    if (idx > -1) movies[idx] = movieData;
+                } else {
+                    movies.unshift(movieData);
+                }
+
+                renderCatalog(movies);
+                renderAdminMovieList();
+                document.getElementById('addMovieForm').reset();
+                document.getElementById('editMovieId').value = '';
+                document.getElementById('episodesListContainer').innerHTML = '';
+                alert(currentLang === 'en' ? 'Saved to the cloud database!' : 'Контент успешно сохранен в облачной базе данных!');
+            } catch (err) {
+                console.error("Save error:", err);
+                alert((currentLang === 'en' ? "Cloud save error: " : "Ошибка сохранения в облако: ") + err.message);
+            }
+        }
+
+        function editMovie(id) {
+            const m = movies.find(item => item.id === id);
+            if (!m) return;
+
+            document.getElementById('editMovieId').value = m.id;
+            document.getElementById('inputTitleRu').value = m.title ? (m.title.ru || '') : '';
+            document.getElementById('inputTitleEn').value = m.title ? (m.title.en || '') : '';
+            document.getElementById('inputYear').value = m.year || new Date().getFullYear();
+            document.getElementById('inputCategory').value = m.category || 'movie';
+            document.getElementById('inputPoster').value = m.poster || '';
+            document.getElementById('inputVideo').value = m.videoUrl || '';
+            document.getElementById('inputDescRu').value = m.description ? (m.description.ru || '') : '';
+            document.getElementById('inputDescEn').value = m.description ? (m.description.en || '') : '';
+            document.getElementById('chkDolbyVision').checked = !!m.dolbyVision;
+            document.getElementById('chkDolbyAtmos').checked = !!m.dolbyAtmos;
+
+            toggleCategoryFormMode();
+
+            const container = document.getElementById('episodesListContainer');
+            if (container) {
+                container.innerHTML = '';
+                if (m.category === 'series' && m.episodes && m.episodes.length > 0) {
+                    m.episodes.forEach(ep => addEpisodeInputRow(ep.title, ep.url));
+                }
+            }
+
+            const adminFormStep = document.getElementById('adminFormStep');
+            if (adminFormStep) {
+                adminFormStep.scrollTop = 0;
+            }
+        }
+
+        async function deleteMovie(id) {
+            if (confirm(currentLang === 'en' ? 'Delete this item from the cloud database?' : 'Удалить этот контент из облачной базы данных?')) {
+                try {
+                    const { error } = await supabaseClient.from('movies').delete().eq('id', id);
+                    if (error) throw error;
+
+                    movies = movies.filter(m => m.id !== id);
+                    renderCatalog(movies);
+                    renderAdminMovieList();
+                } catch(err) {
+                    alert((currentLang === 'en' ? "Delete error: " : "Ошибка удаления: ") + err.message);
+                }
+            }
+        }
+
+        /* --- подсветка фона и карточек за курсором (только мышь, режим ПК) --- */
+        if (window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+            let raf = null, mx = 0, my = 0;
+            document.addEventListener('mousemove', e => {
+                mx = e.clientX; my = e.clientY;
+                document.body.classList.add('has-cursor');
+                const card = e.target.closest ? e.target.closest('.cinema-card') : null;
+                if (card) {
+                    const r = card.getBoundingClientRect();
+                    card.style.setProperty('--cx', (e.clientX - r.left) + 'px');
+                    card.style.setProperty('--cy', (e.clientY - r.top) + 'px');
+                }
+                if (!raf) raf = requestAnimationFrame(() => {
+                    raf = null;
+                    document.body.style.setProperty('--mx', mx + 'px');
+                    document.body.style.setProperty('--my', my + 'px');
+                });
+            });
+            document.documentElement.addEventListener('mouseleave', () => document.body.classList.remove('has-cursor'));
+        }
+
+        /* --- окно «Скачать» --- */
+        function openDownloadModal() {
+            if (!currentDownload) return;
+            const en = currentLang === 'en';
+            const d = currentDownload;
+            const drive = d.type === 'drive';
+            const T = en ? {
+                title: 'How to download the movie',
+                lead: 'The built-in player compresses picture and sound. To watch in the best quality, download the file and open it in a regular video player.',
+                steps: drive ? [
+                    'Tap “Open in Google Drive” below. The file opens in the Drive app or your browser.',
+                    'Tap the ⋮ (three dots) and choose “Download”. If Drive says the file is large and can’t be scanned for viruses, tap “Download anyway”.',
+                    'Wait for the download to finish. Good-quality movies take several gigabytes, so use Wi-Fi and keep enough free space.',
+                    'Open the downloaded file in VLC or MX Player on your phone, or VLC / MPC-HC on a computer. They play the original quality without compression.'
+                ] : [
+                    'Tap “Download file” below. If the video opens in the browser instead, tap ⋮ and choose “Download”.',
+                    'Wait for the download to finish. Good-quality movies take several gigabytes, so use Wi-Fi and keep enough free space.',
+                    'Open the downloaded file in VLC or MX Player on your phone, or VLC / MPC-HC on a computer. They play the original quality without compression.'
+                ],
+                tip: 'Tip: if the video lags or won’t start in the built-in player, the downloaded file almost always fixes it.',
+                open: 'Open in Google Drive', direct: 'Download directly', file: 'Download file'
+            } : {
+                title: 'Как скачать фильм',
+                lead: 'Встроенный плеер сжимает картинку и звук. Чтобы смотреть в максимальном качестве, скачай файл и открой его в обычном видеоплеере.',
+                steps: drive ? [
+                    'Нажми «Открыть в Google Drive» ниже. Файл откроется в приложении Drive или в браузере.',
+                    'Нажми ⋮ (три точки) и выбери «Скачать». Если Drive пишет, что файл большой и не проверен на вирусы, нажми «Всё равно скачать».',
+                    'Дождись конца загрузки. Фильмы в хорошем качестве весят несколько гигабайт, поэтому качай по Wi-Fi и проверь свободное место.',
+                    'Открой скачанный файл в VLC или MX Player на телефоне, либо в VLC / MPC-HC на компьютере. Они проигрывают оригинальное качество без сжатия.'
+                ] : [
+                    'Нажми «Скачать файл» ниже. Если видео открылось в браузере, нажми ⋮ и выбери «Скачать».',
+                    'Дождись конца загрузки. Фильмы в хорошем качестве весят несколько гигабайт, поэтому качай по Wi-Fi и проверь свободное место.',
+                    'Открой скачанный файл в VLC или MX Player на телефоне, либо в VLC / MPC-HC на компьютере. Они проигрывают оригинальное качество без сжатия.'
+                ],
+                tip: 'Совет: если видео тормозит или не запускается во встроенном плеере, скачанный файл почти всегда решает проблему.',
+                open: 'Открыть в Google Drive', direct: 'Скачать напрямую', file: 'Скачать файл'
+            };
+            document.getElementById('dlTitle').innerText = T.title;
+            document.getElementById('dlLead').innerText = T.lead;
+            document.getElementById('dlSteps').innerHTML = T.steps.map(x => `<li>${x}</li>`).join('');
+            document.getElementById('dlTip').innerText = T.tip;
+            document.getElementById('dlActions').innerHTML = drive
+                ? `<a class="dl-btn" href="${d.viewUrl}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-google-drive"></i> ${T.open}</a>
+                   <a class="dl-btn alt" href="${d.directUrl}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-download"></i> ${T.direct}</a>`
+                : `<a class="dl-btn" href="${d.url}" download target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-download"></i> ${T.file}</a>`;
+            document.getElementById('dlModal').classList.add('active');
+        }
+
+        function closeDownloadModal() {
+            const m = document.getElementById('dlModal');
+            if (m) m.classList.remove('active');
+        }
+
+        /* --- перевод админки и подсказок (в английской версии нет русского) --- */
+        const RU_EN = {
+            'Вход Администратора': 'Admin Login', 'Пароль доступа:': 'Access password:', 'Войти': 'Sign in',
+            'Управление Контентом': 'Content Management', 'Название (RU):': 'Title (RU):', 'Название (EN):': 'Title (EN):',
+            'Год выпуска:': 'Release year:', 'Тип контента:': 'Content type:', 'Фильм (Одиночное видео)': 'Movie (single video)',
+            'Сериал (Много серий)': 'Series (multiple episodes)', 'Ссылка на постер (URL, вертикальный, формат 2:3):': 'Poster URL (vertical, 2:3):',
+            'Ссылка или HTML-код плеера (GDrive / YouTube / RuTube / VK / OK.ru / MP4):': 'Player link or HTML code (GDrive / YouTube / RuTube / VK / OK.ru / MP4):',
+            'Список серий сериала:': 'Series episode list:', 'Добавить еще серию': 'Add another episode',
+            'Описание (RU):': 'Description (RU):', 'Описание (EN):': 'Description (EN):', 'Сохранить фильм/сериал': 'Save movie/series',
+            'Опубликованный контент:': 'Published content:', 'Сбросить локальные данные': 'Reset local data',
+            'Телефон': 'Phone', 'Компьютер': 'Computer',
+            'Выбор устройства / Device Select': 'Device', 'Язык / Language': 'Language'
+        };
+
+        function translateUI(root) {
+            if (!root) return;
+            const en = currentLang === 'en';
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+            const nodes = [];
+            while (walker.nextNode()) nodes.push(walker.currentNode);
+            nodes.forEach(n => {
+                if (n.__ru === undefined) {
+                    const t = n.nodeValue.trim();
+                    if (RU_EN[t]) n.__ru = t; else return;
+                }
+                n.nodeValue = n.nodeValue.replace(en ? n.__ru : RU_EN[n.__ru], en ? RU_EN[n.__ru] : n.__ru);
+            });
+            root.querySelectorAll('[title]').forEach(el => {
+                if (el.dataset.ruTitle === undefined && RU_EN[el.title]) el.dataset.ruTitle = el.title;
+                if (el.dataset.ruTitle !== undefined) el.title = en ? RU_EN[el.dataset.ruTitle] : el.dataset.ruTitle;
+            });
+        }
+
+        function translateAll() {
+            translateUI(document.querySelector('header'));
+            translateUI(document.getElementById('adminModal'));
+        }
+
+        function resetToFactory() {
+            localStorage.clear();
+            location.reload();
+        }
+    </script>
+</body>
+</html>
